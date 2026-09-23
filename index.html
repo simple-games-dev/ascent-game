@@ -392,6 +392,10 @@
   // ---------- commit: write + render ----------
   function commit(){
     if(mode==='online' && roomRef){
+      // Refreshed on every write. Pair this with a Firestore TTL policy (field
+      // "expireAt", collection "ascentRooms") so rooms nobody has touched in an
+      // hour get swept away automatically — no Cloud Functions or billing needed.
+      state.expireAt = firebase.firestore.Timestamp.fromMillis(Date.now() + 60*60*1000);
       roomRef.set(state).catch(err=>console.error('sync failed', err));
     }
     render();
@@ -428,6 +432,7 @@
     mode = 'online';
     state = freshState(0);
     state.phase = 'lobby';
+    state.expireAt = firebase.firestore.Timestamp.fromMillis(Date.now() + 60*60*1000);
     roomRef.set(state).then(()=>{
       subscribeRoom();
       const url = new URL(location.href);
