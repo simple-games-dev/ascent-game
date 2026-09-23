@@ -425,8 +425,23 @@
     return s;
   }
 
+  // Firestore's built-in TTL deletes require a paid (Blaze) plan, so instead we
+  // sweep a few stale rooms ourselves using plain reads + deletes, which stay
+  // inside the free quota. Runs opportunistically whenever someone creates a
+  // room — no scheduler, no billing, no server needed.
+  function sweepOldRooms(){
+    if(!fbDb) return;
+    fbDb.collection('ascentRooms')
+      .where('expireAt', '<', firebase.firestore.Timestamp.now())
+      .limit(20)
+      .get()
+      .then(snap=>{ snap.forEach(doc=>doc.ref.delete().catch(()=>{})); })
+      .catch(err=>console.error('room sweep failed', err));
+  }
+
   function createRoom(){
     if(!fbDb) return;
+    sweepOldRooms();
     roomCode = genRoomCode();
     roomRef = fbDb.collection('ascentRooms').doc(roomCode);
     mode = 'online';
